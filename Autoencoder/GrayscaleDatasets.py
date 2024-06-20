@@ -12,12 +12,12 @@ class GrayscaleImagePair(Dataset):
         self.main_dir = path_to_dataset
         self.transform = transform
         
-        self.grayscale_images_path = os.path.join(self.main_dir, 'black')
+        #self.grayscale_images_path = os.path.join(self.main_dir, 'black')
         self.color_images_path = os.path.join(self.main_dir, 'color')
         
         # Check that the directories exist
-        if(not os.path.exists(self.grayscale_images_path)):
-            raise Exception(f"Directory {self.grayscale_images_path} does not exist.")
+        #if(not os.path.exists(self.grayscale_images_path)):
+        #    raise Exception(f"Directory {self.grayscale_images_path} does not exist.")
 
         if(not os.path.exists(self.color_images_path)):
             raise Exception(f"Directory {self.color_images_path} does not exist.")
@@ -28,15 +28,15 @@ class GrayscaleImagePair(Dataset):
         #first_color_shape = np.array(Image.open(os.path.join(self.color_images_path, self.filenames[0]))).shape
         #first_gray_shape = np.array(Image.open(os.path.join(self.grayscale_images_path, self.filenames[0])).convert('L')).shape
         
-        for name in self.filenames:
-            path_to_color = os.path.join(self.color_images_path, name)
-            path_to_grayscale = os.path.join(self.grayscale_images_path, name)
+        # for name in self.filenames:
+        #     path_to_color = os.path.join(self.color_images_path, name)
+        #     path_to_grayscale = os.path.join(self.grayscale_images_path, name)
             
-            if(not os.path.exists(path_to_grayscale) and os.path.exists(path_to_color)):
-                raise Exception(f"The file {os.path.join(self.color_images_path, name)} exists but {os.path.join(self.grayscale_images_path, name)} does not.")
+        #     if(not os.path.exists(path_to_grayscale) and os.path.exists(path_to_color)):
+        #         raise Exception(f"The file {os.path.join(self.color_images_path, name)} exists but {os.path.join(self.grayscale_images_path, name)} does not.")
 
-            if(not os.path.exists(path_to_color) and os.path.exists(path_to_grayscale)):
-                raise Exception(f"The file {path_to_grayscale} exists but {path_to_color} does not.")
+        #     if(not os.path.exists(path_to_color) and os.path.exists(path_to_grayscale)):
+        #         raise Exception(f"The file {path_to_grayscale} exists but {path_to_color} does not.")
             
             # Check that the shapes of the images are the same (confirmed - all images 400x400 pixels)
             # color_shape = np.array(Image.open(path_to_color)).shape
@@ -52,12 +52,12 @@ class GrayscaleImagePair(Dataset):
 
     def __getitem__(self, idx):
         color_image_path = os.path.join(self.color_images_path, self.filenames[idx])
-        grayscale_image_path = os.path.join(self.grayscale_images_path, self.filenames[idx])
+        #grayscale_image_path = os.path.join(self.grayscale_images_path, self.filenames[idx])
         
         # Load images
         # Without converting, PIL will open the file as a 3-channel image, so we need to convert to gray 
         color_image = Image.open(color_image_path)
-        grayscale_image = Image.open(grayscale_image_path).convert('L') 
+        grayscale_image = Image.open(color_image_path).convert('L') 
         
         if self.transform:
             color_image = self.transform(color_image)
