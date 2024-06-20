@@ -35,8 +35,8 @@ if __name__ == '__main__':
             gray = in_grays[0]
             color = color_truths[0]
             
-            #im = tensor_to_image(gray)
-            #im.show()
+            im = tensor_to_image(color)
+            im.show()
             
             # Train the model
             

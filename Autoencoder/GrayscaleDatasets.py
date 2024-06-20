@@ -3,9 +3,11 @@ import torch
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
-import torchvision.transforms as transforms
 
 class GrayscaleImagePair(Dataset):
+    """Load the image, transform it to a tensor when calling __getitem__. This will be slower than using the tensor version, but will use less memory.
+    """
+    
     def __init__(self, path_to_dataset:str, transform=None):
         self.main_dir = path_to_dataset
         self.transform = transform
@@ -66,7 +68,7 @@ class GrayscaleImagePair(Dataset):
 
 
 class GrayscaleTensorPair(Dataset):
-    """This will load tensor representations of the images. This will speed up the training process, but will require more memory.
+    """This will load tensor representations of the images. Using tensors will speed up the training process, but will require more memory.
     
     """
     def __init__(self, path_to_tensors:str):
