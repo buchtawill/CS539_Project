@@ -1,5 +1,6 @@
 colorization_data/images/black/
 colorization_data/images/color/
+colorization_data/images/
 *.jpg
 *.pt
 __pycache__/
