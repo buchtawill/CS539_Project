@@ -4,3 +4,4 @@ colorization_data/images/
 *.jpg
 *.pt
 __pycache__/
+*.docx
