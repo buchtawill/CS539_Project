@@ -1,64 +1,77 @@
-
-
 import torch
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 from matplotlib import pyplot as plt
 import torchvision.transforms as transforms
 from GrayscaleDatasets import GrayscaleTensorPair
 from GrayscaleDatasets import GrayscaleImagePair
 
-NUM_EPOCHS = 500
+NUM_EPOCHS = 202
 BATCH_SIZE = 4
 
 # https://xiangyutang2.github.io/auto-colorization-autoencoders/
 # http://iizuka.cs.tsukuba.ac.jp/projects/colorization/data/colorization_sig2016.pdf
-#
+# ChatGPT used to help translate some features of the model to pytorch (from keras)
+
 class ColorizationAutoencoder(nn.Module):
     def __init__(self):
         super(ColorizationAutoencoder, self).__init__()
         
+        # Feature extractor model (start with vanilla autoencoder only)
+        # self.feature_extractor = nn.Sequential(
+        #     nn.Dropout(0.5),
+        #     nn.Linear(feature_size, 1024),
+        #     nn.ReLU(inplace=True)
+        # )
+        
+        # Encoder
         self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=512, out_channels=256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU()
+            nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
         )
         
+        # Decoder
         self.decoder = nn.Sequential(
-            nn.Conv2d(512, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
+            nn.Conv2d(256, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='nearest'),
-            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
+            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='nearest'),
-            nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(16, 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, 3, kernel_size=3, padding=1),
             nn.Tanh(),
-            nn.Upsample(scale_factor=2, mode='nearest'),
+            nn.Upsample(scale_factor=2, mode='nearest')
         )
         
     def forward(self, x):
+        # Feature extractor
+        #image_feature = self.feature_extractor(inputs1)
+        
         x = self.encoder(x)
         x = self.decoder(x)
+        
         return x
 
 def tensor_to_image(tensor:torch.tensor) -> Image:
@@ -95,7 +108,7 @@ if __name__ == '__main__':
     #full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
 
     #Create train and test datasets. Set small train set for faster training
-    train_size = int(0.4 * len(full_dataset))
+    train_size = int(0.3 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     print(f'INFO [colorizer.py] Num of training samples: {len(train_dataset)}')
@@ -123,6 +136,6 @@ if __name__ == '__main__':
             # in_grays = in_grays.cpu()
             # color_truths = color_truths.cpu()   
             
-        if(epoch % 10 == 0):
+        if(epoch % 200 == 0):
             plot_images(in_grays, color_preds, color_truths)   
            
