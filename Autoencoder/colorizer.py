@@ -78,7 +78,7 @@ def tensor_to_image(tensor:torch.tensor) -> Image:
     return transforms.ToPILImage()(tensor)
 
 def plot_images(grays, colorizeds, truths):
-    fig, axs = plt.subplots(3, 3, figsize=(10, 10))
+    fig, axs = plt.subplots(3, 3, figsize=(8, 8))
     for i in range(3):
         axs[0, i].imshow(tensor_to_image(grays[i].cpu()), cmap='gray')
         axs[0, i].axis('off')
@@ -91,6 +91,7 @@ def plot_images(grays, colorizeds, truths):
         axs[2, i].imshow(tensor_to_image(truths[i].cpu()))
         axs[2, i].axis('off')
         axs[2, i].set_title('Truth')
+    plt.tight_layout()
     plt.show()
 
 if __name__ == '__main__':
@@ -100,25 +101,31 @@ if __name__ == '__main__':
     model = ColorizationAutoencoder().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-
+    #print(model)
+    
     #seed = 50  # Set the seed for reproducibility
     #torch.manual_seed(seed)
+    print("INFO [colorizer.py] Loading Tensor pair dataset")
     full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
+    
     #transform = transforms.Compose([transforms.ToTensor()])
     #full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
 
     #Create train and test datasets. Set small train set for faster training
-    train_size = int(0.3 * len(full_dataset))
+    train_size = int(0.4 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     print(f'INFO [colorizer.py] Num of training samples: {len(train_dataset)}')
 
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     print(f'INFO [colorizer.py] Num batches: {len(dataloader)}')
-    
-    losses_per_epoch = []
+    #print(len(dataloader.dataset)) # dataloader.dataset: tuples of (grayscale, color)
+    #print(dataloader.dataset[0][0].shape) #grayscale image
+    #losses_per_epoch = []
+
     for epoch in tqdm(range(NUM_EPOCHS)):
         for batch in tqdm(dataloader, leave=False):
+            
             in_grays, color_truths = batch 
             
             in_grays = in_grays.to(device)
@@ -135,7 +142,14 @@ if __name__ == '__main__':
             # color_preds = color_preds.cpu()
             # in_grays = in_grays.cpu()
             # color_truths = color_truths.cpu()   
-            
+        
         if(epoch % 200 == 0):
-            plot_images(in_grays, color_preds, color_truths)   
-           
+            in_grays, color_truths = next(iter(dataloader)) #get first images
+            in_grays = in_grays.to(device)
+            color_truths = color_truths.to(device)
+            color_preds = model(in_grays)
+            loss = criterion(color_preds, color_truths)
+            #print(f'Epoch {epoch} loss: {loss.item()}')            
+            plot_images(in_grays, color_preds, color_truths)  
+             
+    torch.save(model.state_dict, './vanilla_encoder_200E')
