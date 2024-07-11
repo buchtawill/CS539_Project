@@ -8,11 +8,13 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
+from torch.optim.lr_scheduler import StepLR
 import torchvision.transforms as transforms
-from GrayscaleDatasets import GrayscaleTensorPair
 from GrayscaleDatasets import GrayscaleImagePair
+from GrayscaleDatasets import GrayscaleTensorPair
+from torch.utils.tensorboard import SummaryWriter
 
-NUM_EPOCHS = 400
+NUM_EPOCHS = 10
 BATCH_SIZE = 4
 
 # https://xiangyutang2.github.io/auto-colorization-autoencoders/
@@ -97,6 +99,82 @@ def plot_images(grays, colorizeds, truths, title):
     plt.savefig(title)
     plt.close()
 
+
+def train_with_tqdm(model, dataloader, optimizer, tb_writer, scheduler, criterion, nSamples):
+    for epoch in tqdm(range(NUM_EPOCHS)):
+        for batch in tqdm(dataloader, leave=False):
+            
+            in_grays, color_truths = batch 
+            
+            in_grays = in_grays.to(device)
+            color_truths = color_truths.to(device)
+            
+            optimizer.zero_grad()
+            
+            color_preds = model(in_grays)
+            loss = criterion(color_preds, color_truths)
+            tb_writer.add_scalar("Loss/train", loss, epoch)
+            
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+        
+        if(epoch % 10 == 0):
+            in_grays, color_truths = next(iter(dataloader)) #get first images
+            in_grays = in_grays.to(device)
+            color_truths = color_truths.to(device)
+            color_preds = model(in_grays)
+            loss = criterion(color_preds, color_truths)
+            #print(f'Epoch {epoch} loss: {loss.item()}')            
+            plot_images(in_grays, color_preds, color_truths, f"epoch_results/epoch{epoch}.png")
+            
+def train_normal(model, dataloader, optimizer, tb_writer, scheduler, criterion, nSamples):
+    for epoch in range(NUM_EPOCHS):
+        running_loss = 0.0
+        for batch in dataloader:
+            
+            in_grays, color_truths = batch 
+            
+            in_grays = in_grays.to(device)
+            color_truths = color_truths.to(device)
+            
+            optimizer.zero_grad()
+            
+            color_preds = model(in_grays)
+            loss = criterion(color_preds, color_truths)
+            
+            loss.backward()
+            optimizer.step() 
+            scheduler.step()
+            running_loss += loss.item()
+        
+        running_loss /= float(nSamples)
+        tb_writer.add_scalar("Loss/train", running_loss, epoch)
+        print(f'Epoch {epoch:>{6}}\t loss: {running_loss:.8f}')
+        
+        if(epoch % 2 == 0):
+            in_grays, color_truths = next(iter(dataloader)) #get first images
+            in_grays = in_grays.to(device)
+            color_truths = color_truths.to(device)
+            color_preds = model(in_grays)
+            loss = criterion(color_preds, color_truths)
+            
+            plot_images(in_grays, color_preds, color_truths, f"epoch_results/epoch{epoch}.png")
+            
+
+def eval_dataset_normal(model, dataloader, criterion, tb_writer):
+    with torch.no_grad:
+        for batch in dataloader:
+            in_grays, color_truths = batch
+            in_grays = in_grays.to(device)
+            color_truths = color_truths.to(device)
+            
+            color_preds = model(in_grays)
+            loss = criterion(color_preds, color_truths)
+            #tb_writer.add_scalar("Loss/test", loss, i)
+            
+    
+
 def sec_to_human(seconds):
     """Return a number of seconds to hours, minutes, and seconds"""
     seconds = seconds % (24 * 3600)
@@ -109,68 +187,44 @@ def sec_to_human(seconds):
 if __name__ == '__main__':
     tstart = time.time()
     print(f"INFO [colorizer.py] Starting script at {tstart}")
-
+    
+    
+    #Set up device, model, and optimizer
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'INFO [colorizer.py] Using device: {device} [torch version: {torch.__version__}]')
     print(f'INFO [colorizer.py] Python version: {sys.version_info}')
     model = ColorizationAutoencoder().to(device)
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    #print(model)
+    optimizer = optim.Adam(model.parameters(), lr=0.0005)
     
-    #seed = 50  # Set the seed for reproducibility
-    #torch.manual_seed(seed)
+    # Get dataset
+    seed = 50  # Set the seed for reproducibility
+    torch.manual_seed(seed)
     print("INFO [colorizer.py] Loading Tensor pair dataset")
     full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
-    
-    #transform = transforms.Compose([transforms.ToTensor()])
-    #full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
 
-    #Create train and test datasets. Set small train set for faster training
-    train_size = int(0.8 * len(full_dataset))
+    # Create train and test datasets. Set small train set for faster training
+    train_size = int(0.1 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
-    print(f'INFO [colorizer.py] Num of training samples: {len(train_dataset)}')
+    num_train_samples = len(train_dataset)
+    print(f'INFO [colorizer.py] Num of training samples: {num_train_samples}')
 
-    dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    print(f'INFO [colorizer.py] Num batches: {len(dataloader)}')
+    # Get Dataloader
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    test_dataloader  = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    print(f'INFO [colorizer.py] Num training batches: {len(train_dataloader)}')
+    scheduler = StepLR(optimizer=optimizer, step_size=20, gamma=0.5)
+    tb_writer = SummaryWriter()
     
-    #print(len(dataloader.dataset)) # dataloader.dataset: tuples of (grayscale, color)
-    #print(dataloader.dataset[0][0].shape) #grayscale image
-    #losses_per_epoch = []
-
-    #for epoch in tqdm(range(NUM_EPOCHS)):
-    #    for batch in tqdm(dataloader, leave=False):
-    for epoch in range(NUM_EPOCHS):
-        for batch in dataloader:
+    model.train()
+    train_normal(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=scheduler, criterion=criterion, nSamples=num_train_samples)
             
-            in_grays, color_truths = batch 
-            
-            in_grays = in_grays.to(device)
-            color_truths = color_truths.to(device)
-            
-            optimizer.zero_grad()
-            
-            color_preds = model(in_grays)
-            loss = criterion(color_preds, color_truths)
-            #losses_per_epoch.append(loss)
-            loss.backward()
-            optimizer.step()
-            
-            # color_preds = color_preds.cpu()
-            # in_grays = in_grays.cpu()
-            # color_truths = color_truths.cpu()   
-        
-        if(epoch % 10 == 0):
-            in_grays, color_truths = next(iter(dataloader)) #get first images
-            in_grays = in_grays.to(device)
-            color_truths = color_truths.to(device)
-            color_preds = model(in_grays)
-            loss = criterion(color_preds, color_truths)
-            #print(f'Epoch {epoch} loss: {loss.item()}')            
-            plot_images(in_grays, color_preds, color_truths, f"epoch_results/epoch{epoch}.png")  
-            
-    torch.save(model.state_dict, './vanilla_encoder_400E.pt')
+    #model.eval()
+    #eval_dataset_normal(model=model, dataloader=test_dataloader, criterion=criterion, tb_writer=tb_writer)
+    
+    tb_writer.flush()
+    #torch.save(model.state_dict, './vanilla_encoder_20E.pt')
     
     tEnd = time.time()
     print(f"INFO [colorizer.py] Ending script. Took {tEnd-tstart} seconds.")

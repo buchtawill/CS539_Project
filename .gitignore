@@ -7,3 +7,4 @@ colorization_data/images/
 __pycache__/
 *.docx
 *slurm*
+*venv*
