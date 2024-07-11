@@ -2,6 +2,7 @@ colorization_data/images/black/
 colorization_data/images/color/
 colorization_data/images/
 *.jpg
+*.png
 *.pt
 __pycache__/
 *.docx

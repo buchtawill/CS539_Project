@@ -1,3 +1,5 @@
+import sys
+import time
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -10,7 +12,7 @@ import torchvision.transforms as transforms
 from GrayscaleDatasets import GrayscaleTensorPair
 from GrayscaleDatasets import GrayscaleImagePair
 
-NUM_EPOCHS = 202
+NUM_EPOCHS = 400
 BATCH_SIZE = 4
 
 # https://xiangyutang2.github.io/auto-colorization-autoencoders/
@@ -77,7 +79,7 @@ class ColorizationAutoencoder(nn.Module):
 def tensor_to_image(tensor:torch.tensor) -> Image:
     return transforms.ToPILImage()(tensor)
 
-def plot_images(grays, colorizeds, truths):
+def plot_images(grays, colorizeds, truths, title):
     fig, axs = plt.subplots(3, 3, figsize=(8, 8))
     for i in range(3):
         axs[0, i].imshow(tensor_to_image(grays[i].cpu()), cmap='gray')
@@ -92,12 +94,25 @@ def plot_images(grays, colorizeds, truths):
         axs[2, i].axis('off')
         axs[2, i].set_title('Truth')
     plt.tight_layout()
-    plt.show()
+    plt.savefig(title)
+    plt.close()
+
+def sec_to_human(seconds):
+    """Return a number of seconds to hours, minutes, and seconds"""
+    seconds = seconds % (24 * 3600)
+    hours = seconds // 3600
+    seconds %= 3600
+    minutes = seconds // 60
+    seconds %= 60
+    return "%d:%02d:%02d" % (hours, minutes, seconds)
 
 if __name__ == '__main__':
+    tstart = time.time()
+    print(f"INFO [colorizer.py] Starting script at {tstart}")
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'INFO [colorizer.py] Using device: {device} [torch version: {torch.__version__}]')
+    print(f'INFO [colorizer.py] Python version: {sys.version_info}')
     model = ColorizationAutoencoder().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -112,19 +127,22 @@ if __name__ == '__main__':
     #full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
 
     #Create train and test datasets. Set small train set for faster training
-    train_size = int(0.4 * len(full_dataset))
+    train_size = int(0.8 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     print(f'INFO [colorizer.py] Num of training samples: {len(train_dataset)}')
 
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     print(f'INFO [colorizer.py] Num batches: {len(dataloader)}')
+    
     #print(len(dataloader.dataset)) # dataloader.dataset: tuples of (grayscale, color)
     #print(dataloader.dataset[0][0].shape) #grayscale image
     #losses_per_epoch = []
 
-    for epoch in tqdm(range(NUM_EPOCHS)):
-        for batch in tqdm(dataloader, leave=False):
+    #for epoch in tqdm(range(NUM_EPOCHS)):
+    #    for batch in tqdm(dataloader, leave=False):
+    for epoch in range(NUM_EPOCHS):
+        for batch in dataloader:
             
             in_grays, color_truths = batch 
             
@@ -143,13 +161,17 @@ if __name__ == '__main__':
             # in_grays = in_grays.cpu()
             # color_truths = color_truths.cpu()   
         
-        if(epoch % 200 == 0):
+        if(epoch % 10 == 0):
             in_grays, color_truths = next(iter(dataloader)) #get first images
             in_grays = in_grays.to(device)
             color_truths = color_truths.to(device)
             color_preds = model(in_grays)
             loss = criterion(color_preds, color_truths)
             #print(f'Epoch {epoch} loss: {loss.item()}')            
-            plot_images(in_grays, color_preds, color_truths)  
-             
-    torch.save(model.state_dict, './vanilla_encoder_200E')
+            plot_images(in_grays, color_preds, color_truths, f"epoch_results/epoch{epoch}.png")  
+            
+    torch.save(model.state_dict, './vanilla_encoder_400E.pt')
+    
+    tEnd = time.time()
+    print(f"INFO [colorizer.py] Ending script. Took {tEnd-tstart} seconds.")
+    print(f"INFO [colorizer.py] {sec_to_human(tEnd-tstart)}")
