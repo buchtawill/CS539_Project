@@ -12,7 +12,9 @@
 module purge
 module load slurm cuda12.1 #python/3.12.4
 
-echo "INFO [run.sh] Starting execution"
+now=$(date)
+echo "INFO [run.sh] Starting execution on $now"
+
 
 #source /home/jwbuchta/CS539_Project/Autoencoder/venv_autoencoder/bin/activate
 #which $HOME/CS539_Project/Autoencoder/venv_autoencoder/bin/python
@@ -20,4 +22,5 @@ $HOME/CS539_Project/Autoencoder/venv_autoencoder/bin/python colorizer.py
 
 #sleep 600
 
-echo "INFO [run.sh] Script finished"
+now=$(date)
+echo "INFO [run.sh] Finished execution at $now"

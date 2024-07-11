@@ -6,3 +6,4 @@ colorization_data/images/
 *.pt
 __pycache__/
 *.docx
+*slurm*
