@@ -14,7 +14,7 @@ from GrayscaleDatasets import GrayscaleImagePair
 from GrayscaleDatasets import GrayscaleTensorPair
 from torch.utils.tensorboard import SummaryWriter
 
-NUM_EPOCHS = 10
+NUM_EPOCHS = 500
 BATCH_SIZE = 4
 
 # https://xiangyutang2.github.io/auto-colorization-autoencoders/
@@ -145,14 +145,14 @@ def train_normal(model, dataloader, optimizer, tb_writer, scheduler, criterion, 
             
             loss.backward()
             optimizer.step() 
-            scheduler.step()
+            #scheduler.step()
             running_loss += loss.item()
         
         running_loss /= float(nSamples)
         tb_writer.add_scalar("Loss/train", running_loss, epoch)
         print(f'Epoch {epoch:>{6}}\t loss: {running_loss:.8f}')
         
-        if(epoch % 2 == 0):
+        if(epoch % 10 == 0):
             in_grays, color_truths = next(iter(dataloader)) #get first images
             in_grays = in_grays.to(device)
             color_truths = color_truths.to(device)
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     print(f'INFO [colorizer.py] Python version: {sys.version_info}')
     model = ColorizationAutoencoder().to(device)
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     
     # Get dataset
     seed = 50  # Set the seed for reproducibility
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
 
     # Create train and test datasets. Set small train set for faster training
-    train_size = int(0.1 * len(full_dataset))
+    train_size = int(0.85 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     num_train_samples = len(train_dataset)
@@ -214,18 +214,18 @@ if __name__ == '__main__':
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_dataloader  = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
     print(f'INFO [colorizer.py] Num training batches: {len(train_dataloader)}')
-    scheduler = StepLR(optimizer=optimizer, step_size=20, gamma=0.5)
+    #scheduler = StepLR(optimizer=optimizer, step_size=20, gamma=0.5)
     tb_writer = SummaryWriter()
     
     model.train()
-    train_normal(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=scheduler, criterion=criterion, nSamples=num_train_samples)
+    train_normal(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
             
     #model.eval()
     #eval_dataset_normal(model=model, dataloader=test_dataloader, criterion=criterion, tb_writer=tb_writer)
     
     tb_writer.flush()
-    #torch.save(model.state_dict, './vanilla_encoder_20E.pt')
+    torch.save(model.state_dict, './vanilla_lr001_500E.pt')
     
     tEnd = time.time()
     print(f"INFO [colorizer.py] Ending script. Took {tEnd-tstart} seconds.")
-    print(f"INFO [colorizer.py] {sec_to_human(tEnd-tstart)}")
+    print(f"INFO [colorizer.py] HH:MM:SS --> {sec_to_human(tEnd-tstart)}")
