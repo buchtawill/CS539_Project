@@ -14,8 +14,8 @@ from GrayscaleDatasets import GrayscaleImagePair
 from GrayscaleDatasets import GrayscaleTensorPair
 from torch.utils.tensorboard import SummaryWriter
 
-NUM_EPOCHS = 500
-BATCH_SIZE = 4
+NUM_EPOCHS = 1000
+BATCH_SIZE = 8
 
 # https://xiangyutang2.github.io/auto-colorization-autoencoders/
 # http://iizuka.cs.tsukuba.ac.jp/projects/colorization/data/colorization_sig2016.pdf
@@ -173,7 +173,6 @@ def eval_dataset_normal(model, dataloader, criterion, tb_writer):
             loss = criterion(color_preds, color_truths)
             #tb_writer.add_scalar("Loss/test", loss, i)
             
-    
 
 def sec_to_human(seconds):
     """Return a number of seconds to hours, minutes, and seconds"""
