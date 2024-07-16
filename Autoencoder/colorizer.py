@@ -223,7 +223,7 @@ if __name__ == '__main__':
     #eval_dataset_normal(model=model, dataloader=test_dataloader, criterion=criterion, tb_writer=tb_writer)
     
     tb_writer.flush()
-    torch.save(model.state_dict, './vanilla_lr001_500E.pt')
+    torch.save(model.state_dict(), './vanilla_1kE_4bat_dict.pth')
     
     tEnd = time.time()
     print(f"INFO [colorizer.py] Ending script. Took {tEnd-tstart} seconds.")
