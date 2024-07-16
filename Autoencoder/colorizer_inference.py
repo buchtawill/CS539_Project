@@ -43,15 +43,16 @@ if __name__ == '__main__':
     print(f'INFO [colorizer_inference.py] Python version: {sys.version_info}')
     
     model = ColorizationAutoencoder().to(device)
-    checkpoint = torch.load('C:\\Users\\bucht\\OneDrive - Worcester Polytechnic Institute (wpi.edu)\\CS Courses\\CS539_Project\\Autoencoder\\vanilla_1kE_8bat.pt')
-    print(checkpoint)
+    #Since state dict was saved as a function call and not just weights, need to "call" the function
+    checkpoint = torch.load('./vanilla_1kE_8bat.pt')() 
+    #print(checkpoint)
     model.load_state_dict(checkpoint)
     model.eval()
     criterion = nn.MSELoss()
     
     seed = 50  # Set the seed for reproducibility
     torch.manual_seed(seed)
-    print("INFO [colorizer.py] Loading Tensor pair dataset")
+    print("INFO [colorizer_inference.py] Loading Tensor pair dataset")
     full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
     
     # Create train and test datasets. Set small train set for faster training
@@ -59,11 +60,11 @@ if __name__ == '__main__':
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     num_test_samples = len(test_dataset)
-    print(f'INFO [colorizer.py] Num of test samples: {num_test_samples}')
+    print(f'INFO [colorizer_inference.py] Num of test samples: {num_test_samples}')
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=6)
     
     #Store the first 6 images, then calculate total loss
-    with torch.no_grad:
+    with torch.no_grad():
         running_loss = 0.0
         first_batch = True
         for batch in tqdm(test_dataloader):
@@ -73,9 +74,10 @@ if __name__ == '__main__':
             
             color_preds = model(in_grays)
             loss = criterion(color_preds, color_truths)
-            running_loss += loss
+            running_loss += loss.item()
             
             if(first_batch):
                 first_batch = False
                 save_6_images(grays=in_grays, predictions=color_preds, colors=color_truths, title='results.png')
             #tb_writer.add_scalar("Loss/test", loss, i)
+        print(f"Average loss of test set: {running_loss / num_test_samples}")
