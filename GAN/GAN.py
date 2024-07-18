@@ -12,8 +12,8 @@ import torch.optim as optim
 from matplotlib import pyplot as plt
 import torchvision.transforms as transforms
 from GrayscaleDatasets import GrayscaleTensorPair
-from GrayscaleDatasets import GrayscaleImagePair
-from gan_colorizer import Generator, Discriminator
+#from GrayscaleDatasets import GrayscaleImagePair
+#from gan_colorizer import Generator, Discriminator
 
 class Generator(nn.Module):
     def __init__(self):
@@ -59,7 +59,7 @@ class Discriminator(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-NUM_EPOCHS = 5
+NUM_EPOCHS = 500
 BATCH_SIZE = 8
 LEARNING_RATE = 0.0002  
 BETA1 = 0.5
@@ -67,8 +67,8 @@ BETA1 = 0.5
 def tensor_to_image(tensor: torch.Tensor) -> Image:
     return transforms.ToPILImage()(tensor)
 
-def plot_images(grays, colorizeds, truths):
-    fig, axs = plt.subplots(3, 3, figsize=(10, 10))
+def plot_images(grays, colorizeds, truths, epoch):
+    fig, axs = plt.subplots(3, 3, figsize=(8, 8))
     for i in range(3):
         axs[0, i].imshow(tensor_to_image(grays[i].cpu()), cmap='gray')
         axs[0, i].axis('off')
@@ -81,14 +81,19 @@ def plot_images(grays, colorizeds, truths):
         axs[2, i].imshow(tensor_to_image(truths[i].cpu()))
         axs[2, i].axis('off')
         axs[2, i].set_title('Truth')
-    plt.show()
+        plt.tight_layout()
+    #plt.show()
+    plt.savefig(f'epoch_results/epoch{epoch}.jpg')
+    plt.close()
+    
 
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'INFO [colorizer.py] Using device: {device} [torch version: {torch.__version__}]')
 
-    transform = transforms.Compose([transforms.Resize((128, 128)), transforms.ToTensor()])  
-    full_dataset = GrayscaleImagePair(r"C:\Users\zoaib\Downloads\HumzaProject\colorization_data\images", transform=transform)
+    #transform = transforms.Compose([transforms.Resize((128, 128)), transforms.ToTensor()])  
+    print(f'INFO [colorizer.py] Loading grayscale tensor pair dataset')
+    full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
     
     train_size = int(0.8 * len(full_dataset)) #Could be the cause of the issue
     test_size = len(full_dataset) - train_size #####
@@ -150,6 +155,9 @@ if __name__ == '__main__':
 
             progress_bar.set_postfix(loss_d=(epoch_loss_d / (i+1)), loss_g=(epoch_loss_g / (i+1)))
 
-        if epoch % 1 == 0:
+        if epoch % 5 == 0:
             print(f'Epoch [{epoch+1}/{NUM_EPOCHS}] Loss D: {epoch_loss_d/len(dataloader)}, loss G: {epoch_loss_g/len(dataloader)}')
-            plot_images(grayscale, fake_color, real_color)
+            plot_images(grayscale, fake_color, real_color, epoch)
+    
+    torch.save(generator.state_dict(), 'generator_state_dict_500e.pt')
+    torch.save(discriminator.state_dict(), 'discriminator_state_dict_500e.pt')
