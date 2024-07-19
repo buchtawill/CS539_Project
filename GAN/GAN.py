@@ -12,28 +12,46 @@ import torch.optim as optim
 from matplotlib import pyplot as plt
 import torchvision.transforms as transforms
 from GrayscaleDatasets import GrayscaleTensorPair
-#from GrayscaleDatasets import GrayscaleImagePair
+from GrayscaleDatasets import GrayscaleImagePair
 #from gan_colorizer import Generator, Discriminator
 
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1), 
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            nn.ReLU()
+            nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
         )
         
+        # Decoder
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1),
-            nn.Tanh()
+            nn.Conv2d(256, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),
+            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, 3, kernel_size=3, padding=1),
+            nn.Tanh(),
+            nn.Upsample(scale_factor=2, mode='nearest')
         )
     
     def forward(self, x):
@@ -49,10 +67,10 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(64),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(inplace=True),
             nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(),
             nn.Conv2d(128, 1, kernel_size=4, stride=2, padding=1)
         )
     
@@ -89,19 +107,27 @@ def plot_images(grays, colorizeds, truths, epoch):
 
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'INFO [colorizer.py] Using device: {device} [torch version: {torch.__version__}]')
+    print(f'INFO [GAN.py] Using device: {device} [torch version: {torch.__version__}]')
+    
+    seed = 50  # Set the seed for reproducibility
+    torch.manual_seed(seed)
 
     #transform = transforms.Compose([transforms.Resize((128, 128)), transforms.ToTensor()])  
-    print(f'INFO [colorizer.py] Loading grayscale tensor pair dataset')
-    full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
+    print(f'INFO [GAN.py] Loading grayscale tensor pair dataset')
+    #full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
     
-    train_size = int(0.8 * len(full_dataset)) #Could be the cause of the issue
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+    full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
+    
+    train_size = int(0.2 * len(full_dataset)) #Could be the cause of the issue
     test_size = len(full_dataset) - train_size #####
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
-    print(f'INFO [colorizer.py] Num of training samples: {len(train_dataset)}')
+    print(f'INFO [GAN.py] Num of training samples: {len(train_dataset)}')
 
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    print(f'INFO [colorizer.py] Num batches: {len(dataloader)}')
+    print(f'INFO [GAN.py] Num batches: {len(dataloader)}')
 
     generator = Generator().to(device)
     discriminator = Discriminator().to(device)
@@ -159,5 +185,5 @@ if __name__ == '__main__':
             print(f'Epoch [{epoch+1}/{NUM_EPOCHS}] Loss D: {epoch_loss_d/len(dataloader)}, loss G: {epoch_loss_g/len(dataloader)}')
             plot_images(grayscale, fake_color, real_color, epoch)
     
-    torch.save(generator.state_dict(), 'generator_state_dict_500e.pt')
-    torch.save(discriminator.state_dict(), 'discriminator_state_dict_500e.pt')
+    #torch.save(generator.state_dict(), 'new_gen_generator_state_dict_500e.pt')
+    #torch.save(discriminator.state_dict(), 'new_gen_discriminator_state_dict_500e.pt')
