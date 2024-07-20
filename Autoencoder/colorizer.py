@@ -25,15 +25,8 @@ class ColorizationAutoencoder(nn.Module):
     def __init__(self):
         super(ColorizationAutoencoder, self).__init__()
         
-        # Feature extractor model (start with vanilla autoencoder only)
-        # self.feature_extractor = nn.Sequential(
-        #     nn.Dropout(0.5),
-        #     nn.Linear(feature_size, 1024),
-        #     nn.ReLU(inplace=True)
-        # )
-        
-        # Encoder
-        self.encoder = nn.Sequential(
+        # Low level features
+        self.low_level_features = nn.Sequential(
             nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
@@ -46,14 +39,55 @@ class ColorizationAutoencoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 512, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
+        )
+        
+        # mid level features
+        self.mid_level_features = nn.Sequential(
             nn.Conv2d(512, 512, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(512, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True)
         )
         
+        # Global features network
+        self.global_features = nn.Sequential(
+            #input: 512x50x50
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            
+            #512x25x25
+            
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            
+            #512x25x25
+            
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            
+            #512x13x13
+            
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            
+            #512x6x6
+            
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            #512x3x3
+            nn.Flatten(),
+            # 4608x1
+            nn.Linear(in_features=4608, out_features=1024),
+            nn.Linear(in_features=1024, out_features=512),
+            nn.Linear(in_features=512, out_features=256),
+        )
+        
+        self.fusion = nn.Sequential(
+            nn.Conv2d(512, 256, kernel_size=1),
+            nn.ReLU(inplace=True)
+        )
+        
         # Decoder
-        self.decoder = nn.Sequential(
+        self.colorizer = nn.Sequential(
             nn.Conv2d(256, 128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='nearest'),
@@ -73,9 +107,18 @@ class ColorizationAutoencoder(nn.Module):
         # Feature extractor
         #image_feature = self.feature_extractor(inputs1)
         
-        x = self.encoder(x)
-        x = self.decoder(x)
+        x = self.low_level_features(x)              #Output: bat x 512 x 50 x 50
+        from_mid_level = self.mid_level_features(x) #Output: bat x 256 x 50 x 50
+        from_global = self.global_features(x)       #Output: bat x 256
+        from_global = from_global.unsqueeze(-1)     #Output: bat x 256 x 1
+        from_global = from_global.unsqueeze(-1)     #Output: bat x 256 x 1 x 1
         
+        from_global = from_global.expand(-1, -1, from_mid_level.size(2), from_mid_level.size(3))  # Output: bat x 256 x 50 x 50
+
+        combined_features = torch.cat((from_mid_level, from_global), dim=1)  # Output: bat x 512 x 50 x 50
+        x = self.fusion(combined_features)
+        
+        x = self.colorizer(x)
         return x
 
 def tensor_to_image(tensor:torch.tensor) -> Image:
@@ -96,7 +139,8 @@ def plot_images(grays, colorizeds, truths, title):
         axs[2, i].axis('off')
         axs[2, i].set_title('Truth')
     plt.tight_layout()
-    plt.savefig(title)
+    #plt.savefig(title)
+    plt.show()
     plt.close()
 
 
@@ -117,9 +161,9 @@ def train_with_tqdm(model, dataloader, optimizer, tb_writer, scheduler, criterio
             
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            #scheduler.step()
         
-        if(epoch % 10 == 0):
+        if(epoch % 1 == 0):
             in_grays, color_truths = next(iter(dataloader)) #get first images
             in_grays = in_grays.to(device)
             color_truths = color_truths.to(device)
@@ -193,6 +237,7 @@ if __name__ == '__main__':
     print(f'INFO [colorizer.py] Using device: {device} [torch version: {torch.__version__}]')
     print(f'INFO [colorizer.py] Python version: {sys.version_info}')
     model = ColorizationAutoencoder().to(device)
+    print(model)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
@@ -201,9 +246,12 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     print("INFO [colorizer.py] Loading Tensor pair dataset")
     full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
-
+    # print("INFO [colorizer.py] Loading Image pair dataset")
+    # transform = transforms.Compose([transforms.ToTensor()])
+    # full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
+    
     # Create train and test datasets. Set small train set for faster training
-    train_size = int(0.85 * len(full_dataset))
+    train_size = int(0.25 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     num_train_samples = len(train_dataset)
@@ -217,7 +265,8 @@ if __name__ == '__main__':
     tb_writer = SummaryWriter()
     
     model.train()
-    train_normal(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
+    # train_normal(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
+    train_with_tqdm(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
             
     #model.eval()
     #eval_dataset_normal(model=model, dataloader=test_dataloader, criterion=criterion, tb_writer=tb_writer)

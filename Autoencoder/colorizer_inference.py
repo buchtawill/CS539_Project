@@ -18,8 +18,8 @@ def tensor_to_image(tensor:torch.tensor) -> Image:
     return transforms.ToPILImage()(tensor)
 
 def save_6_images(grays, predictions, colors, title='results.png') -> None:
-    fig, axs = plt.subplots(3, 3, figsize=(8, 8))
-    for i in range(3):
+    fig, axs = plt.subplots(3, 5, figsize=(12, 8))
+    for i in range(5):
         axs[0, i].imshow(tensor_to_image(grays[i].cpu()), cmap='gray')
         axs[0, i].axis('off')
         axs[0, i].set_title('Grayscale')
