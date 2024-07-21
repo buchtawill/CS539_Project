@@ -19,11 +19,57 @@ BATCH_SIZE = 8
 
 # https://xiangyutang2.github.io/auto-colorization-autoencoders/
 # http://iizuka.cs.tsukuba.ac.jp/projects/colorization/data/colorization_sig2016.pdf
-# ChatGPT used to help translate some features of the model to pytorch (from keras)
 
 class ColorizationAutoencoder(nn.Module):
     def __init__(self):
         super(ColorizationAutoencoder, self).__init__()
+        
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Conv2d(256, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),
+            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, 3, kernel_size=3, padding=1),
+            nn.Tanh(),
+            nn.Upsample(scale_factor=2, mode='nearest')
+        )
+        
+    def forward(self, x):        
+        x = self.encoder(x)
+        x = self.decoder(x)
+        
+        return x
+
+class GlobalColorizationAutoencoder(nn.Module):
+    def __init__(self):
+        super(GlobalColorizationAutoencoder, self).__init__()
         
         # Low level features
         self.low_level_features = nn.Sequential(
@@ -237,24 +283,26 @@ if __name__ == '__main__':
     print(f'INFO [colorizer.py] Using device: {device} [torch version: {torch.__version__}]')
     print(f'INFO [colorizer.py] Python version: {sys.version_info}')
     model = ColorizationAutoencoder().to(device)
-    print(model)
+    #print(model)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
     # Get dataset
     seed = 50  # Set the seed for reproducibility
     torch.manual_seed(seed)
-    print("INFO [colorizer.py] Loading Tensor pair dataset")
-    full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
-    # print("INFO [colorizer.py] Loading Image pair dataset")
-    # transform = transforms.Compose([transforms.ToTensor()])
-    # full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
+    # print("INFO [colorizer.py] Loading Tensor pair dataset")
+    # full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
+    print("INFO [colorizer.py] Loading Image pair dataset")
+    transform = transforms.Compose([transforms.ToTensor()])
+    full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
     
     # Create train and test datasets. Set small train set for faster training
-    train_size = int(0.25 * len(full_dataset))
+    
+    train_size = int(0.85 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     num_train_samples = len(train_dataset)
+    print(f'INFO [colorizer.py] Total num data samples: {len(full_dataset)}')
     print(f'INFO [colorizer.py] Num of training samples: {num_train_samples}')
 
     # Get Dataloader

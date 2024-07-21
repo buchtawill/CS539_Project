@@ -44,7 +44,8 @@ if __name__ == '__main__':
     
     model = ColorizationAutoencoder().to(device)
     #Since state dict was saved as a function call and not just weights, need to "call" the function
-    checkpoint = torch.load('./vanilla_1kE_8bat.pt')() 
+    #checkpoint = torch.load('./with_fusion_800e_8bat_0005LR.pt')
+    checkpoint = torch.load('./vanilla_1kE_8bat.pt')()
     #print(checkpoint)
     model.load_state_dict(checkpoint)
     model.eval()
