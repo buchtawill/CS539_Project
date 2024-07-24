@@ -1,4 +1,4 @@
-To train the model, type 'python colorizer.py' into a command line. To run the model in inference mode, run 'python colorizer_inference.py'. 
+To train the model, type 'python GAN.py' into a command line.
 
 This script was verified to work using Python 3.12.4 and PyTorch v2.3.1+cu121.
 
