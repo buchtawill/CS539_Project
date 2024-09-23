@@ -14,8 +14,9 @@ from GrayscaleDatasets import GrayscaleImagePair
 from GrayscaleDatasets import GrayscaleTensorPair
 from torch.utils.tensorboard import SummaryWriter
 
-NUM_EPOCHS = 1000
+NUM_EPOCHS = 800
 BATCH_SIZE = 8
+LEARN_RATE = 0.0005
 
 # https://xiangyutang2.github.io/auto-colorization-autoencoders/
 # http://iizuka.cs.tsukuba.ac.jp/projects/colorization/data/colorization_sig2016.pdf
@@ -139,8 +140,8 @@ def plot_images(grays, colorizeds, truths, title):
         axs[2, i].axis('off')
         axs[2, i].set_title('Truth')
     plt.tight_layout()
-    #plt.savefig(title)
-    plt.show()
+    plt.savefig(title)
+    # plt.show()
     plt.close()
 
 
@@ -163,7 +164,7 @@ def train_with_tqdm(model, dataloader, optimizer, tb_writer, scheduler, criterio
             optimizer.step()
             #scheduler.step()
         
-        if(epoch % 1 == 0):
+        if(epoch % 10 == 0):
             in_grays, color_truths = next(iter(dataloader)) #get first images
             in_grays = in_grays.to(device)
             color_truths = color_truths.to(device)
@@ -196,14 +197,14 @@ def train_normal(model, dataloader, optimizer, tb_writer, scheduler, criterion, 
         tb_writer.add_scalar("Loss/train", running_loss, epoch)
         print(f'Epoch {epoch:>{6}}\t loss: {running_loss:.8f}')
         
-        if(epoch % 10 == 0):
+        if(epoch % 1 == 0):
             in_grays, color_truths = next(iter(dataloader)) #get first images
             in_grays = in_grays.to(device)
             color_truths = color_truths.to(device)
             color_preds = model(in_grays)
             loss = criterion(color_preds, color_truths)
             
-            plot_images(in_grays, color_preds, color_truths, f"epoch_results/epoch{epoch}.png")
+            plot_images(in_grays, color_preds, color_truths, f"epoch_results2/epoch{epoch}.png")
             
 
 def eval_dataset_normal(model, dataloader, criterion, tb_writer):
@@ -237,9 +238,8 @@ if __name__ == '__main__':
     print(f'INFO [colorizer.py] Using device: {device} [torch version: {torch.__version__}]')
     print(f'INFO [colorizer.py] Python version: {sys.version_info}')
     model = ColorizationAutoencoder().to(device)
-    print(model)
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=LEARN_RATE)
     
     # Get dataset
     seed = 50  # Set the seed for reproducibility
@@ -251,7 +251,7 @@ if __name__ == '__main__':
     # full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
     
     # Create train and test datasets. Set small train set for faster training
-    train_size = int(0.25 * len(full_dataset))
+    train_size = int(0.85 * len(full_dataset))
     test_size = len(full_dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size], generator=torch.Generator())
     num_train_samples = len(train_dataset)
@@ -265,14 +265,14 @@ if __name__ == '__main__':
     tb_writer = SummaryWriter()
     
     model.train()
-    # train_normal(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
-    train_with_tqdm(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
+    train_normal(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
+    # train_with_tqdm(model=model, dataloader=train_dataloader, optimizer=optimizer, tb_writer=tb_writer, scheduler=None, criterion=criterion, nSamples=num_train_samples)
             
     #model.eval()
     #eval_dataset_normal(model=model, dataloader=test_dataloader, criterion=criterion, tb_writer=tb_writer)
     
     tb_writer.flush()
-    torch.save(model.state_dict(), './vanilla_1kE_4bat_dict.pth')
+    torch.save(model.state_dict(), './with_fusion_800e_8bat_0005LR.pth')
     
     tEnd = time.time()
     print(f"INFO [colorizer.py] Ending script. Took {tEnd-tstart} seconds.")
