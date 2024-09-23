@@ -12,7 +12,7 @@ import torch.optim as optim
 from matplotlib import pyplot as plt
 import torchvision.transforms as transforms
 from GrayscaleDatasets import GrayscaleTensorPair
-from GrayscaleDatasets import GrayscaleImagePair
+#from GrayscaleDatasets import GrayscaleImagePair
 #from gan_colorizer import Generator, Discriminator
 
 class Generator(nn.Module):
@@ -77,7 +77,7 @@ class Discriminator(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-NUM_EPOCHS = 500
+NUM_EPOCHS = 10
 BATCH_SIZE = 8
 LEARNING_RATE = 0.0002  
 BETA1 = 0.5
@@ -114,12 +114,12 @@ if __name__ == '__main__':
 
     #transform = transforms.Compose([transforms.Resize((128, 128)), transforms.ToTensor()])  
     print(f'INFO [GAN.py] Loading grayscale tensor pair dataset')
-    #full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
+    full_dataset = GrayscaleTensorPair('../colorization_data/tensors')
     
-    transform = transforms.Compose([
-        transforms.ToTensor()
-    ])
-    full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
+    # transform = transforms.Compose([
+    #     transforms.ToTensor()
+    # ])
+    # full_dataset = GrayscaleImagePair("../colorization_data/images", transform=transform)
     
     train_size = int(0.2 * len(full_dataset)) #Could be the cause of the issue
     test_size = len(full_dataset) - train_size #####
@@ -181,7 +181,7 @@ if __name__ == '__main__':
 
             progress_bar.set_postfix(loss_d=(epoch_loss_d / (i+1)), loss_g=(epoch_loss_g / (i+1)))
 
-        if epoch % 5 == 0:
+        if epoch % 1 == 0:
             print(f'Epoch [{epoch+1}/{NUM_EPOCHS}] Loss D: {epoch_loss_d/len(dataloader)}, loss G: {epoch_loss_g/len(dataloader)}')
             plot_images(grayscale, fake_color, real_color, epoch)
     

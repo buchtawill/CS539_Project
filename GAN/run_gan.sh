@@ -2,9 +2,9 @@
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=2
 #SBATCH --mem=32g
-#SBATCH -J "image_training_800Epochs"
+#SBATCH -J "Grayscale image pair training - GAN"
 #SBATCH -p short
-#SBATCH -t 8:00:00
+#SBATCH -t 12:00:00
 #SBATCH --gres=gpu:2
 #SBATCH -C H100|A100
 #SBATCH --mail-user=jwbuchta@wpi.edu
@@ -18,7 +18,7 @@ echo "INFO [run.sh] Starting execution on $now"
 
 #source /home/jwbuchta/CS539_Project/Autoencoder/venv_autoencoder/bin/activate
 #which $HOME/CS539_Project/Autoencoder/venv_autoencoder/bin/python
-$HOME/CS539_Project/Autoencoder/venv_autoencoder/bin/python colorizer.py
+$HOME/CS539_Project/Autoencoder/venv_autoencoder/bin/python GAN.py
 
 #sleep 600
 
